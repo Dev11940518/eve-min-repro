@@ -1,0 +1,13 @@
+{
+  "name": "eve-msb-broker-leak-min-repro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal reproduction: eve credential brokering leaks the real brokered secret into the microsandbox guest env (EVE_MICROSANDBOX_NETWORK_TRANSFORMS).",
+  "type": "module",
+  "scripts": {
+    "poc": "node --experimental-strip-types poc.ts"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}

