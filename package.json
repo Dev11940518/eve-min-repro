@@ -1,13 +1,21 @@
 {
-  "name": "eve-msb-broker-leak-min-repro",
+  "name": "eve-msb-broker-leak-e2e",
   "version": "1.0.0",
-  "private": true,
-  "description": "Minimal reproduction: eve credential brokering leaks the real brokered secret into the microsandbox guest env (EVE_MICROSANDBOX_NETWORK_TRANSFORMS).",
-  "type": "module",
+  "description": "End-to-end reproduction: eve init scaffold + agent/sandbox.ts that brokers a credential and reads it back out of the guest env.",
+  "type": "commonjs",
   "scripts": {
-    "poc": "node --experimental-strip-types poc.ts"
+    "dev": "eve dev --no-ui"
+  },
+  "dependencies": {
+    "@vercel/connect": "0.2.2",
+    "ai": "^7.0.0",
+    "eve": "^0.22.0",
+    "zod": "4.4.3"
   },
   "engines": {
-    "node": ">=22.6.0"
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "microsandbox": "^0.5.10"
   }
 }

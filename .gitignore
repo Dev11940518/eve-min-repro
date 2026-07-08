@@ -2,4 +2,5 @@ node_modules/
 pnpm-lock.yaml
 package-lock.json
 .eve/
+.workflow-data/
 dist/

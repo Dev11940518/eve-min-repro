@@ -1,8 +1,0 @@
-☰eve  v0.21.1
-[DEV] server listening at http://127.0.0.1:2000/
-LEAK>>>[{"domain":"github.com","headers":{"authorization":"Basic eC1hY2Nlc3MtdG9rZW46Z2hwX1MzY3IzdE9yZ1dpZGVQQVRfcmVwbGF5YWJsZV9hbnl3aGVyZQ=="},"placeholderHeaders":{"authorization":"__EVE_MSB_SECRET_6b5249479093f7976f515422__"}}]<<<LEAK
-[eve:harness.tool-loop] AI Gateway authentication failed: AI Gateway received no credentials. Run `eve link` to populate `VERCEL_OIDC_TOKEN`, or set `AI_GATEWAY_API_KEY` — create a key at https://vercel.com/dashboard/ai/api-keys. {
-  errorId: 'c4f885e0-0f5a-4605-99d2-f9efea4ac28d',
-  sessionId: 'wrun_01KWZVH4F9EAHK8EVWYGM33FEA',
-  turnId: 'turn_0'
-}
